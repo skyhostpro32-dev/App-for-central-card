@@ -137,22 +137,25 @@ if uploaded_file and tool not in [
 
 # =========================
 # 🧽 SMART ERASE TOOL
-# =========================
+# =======================
 elif tool == "🧽 Smart Erase Tool":
 
     st.subheader("🧽 Smart Erase (Natural Fill AI)")
 
     if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
+
+        # 🔥 FIX: Resize (prevents crash)
         image = image.resize((500, int(500 * image.height / image.width)))
 
-        st.write("🖌 Draw on object → Click Apply → Natural removal")
+        st.write("🖌 Draw → Apply → Natural remove")
 
         canvas = st_canvas(
             fill_color="rgba(255,0,0,0.4)",
             stroke_width=30,
             stroke_color="#ff0000",
-            background_image=np.array(image),
+            background_image=image,  # ✅ FIX (use PIL, NOT numpy)
+            update_streamlit=True,
             height=500,
             width=500,
             drawing_mode="freedraw",
@@ -164,25 +167,23 @@ elif tool == "🧽 Smart Erase Tool":
 
             if canvas.image_data is not None:
 
-                with st.spinner("Removing object naturally..."):
+                with st.spinner("AI removing object..."):
 
-                    # 🔥 Extract mask
+                    # 🔥 Extract mask properly
                     mask = canvas.image_data[:, :, 3]
                     mask = (mask > 50).astype("uint8") * 255
 
                     img_np = np.array(image)
 
-                    # 🔥 NATURAL INPAINT
                     result = cv2.inpaint(
                         img_np,
                         mask,
-                        7,  # stronger = better fill
+                        7,
                         cv2.INPAINT_TELEA
                     )
 
                 st.image(result, caption="✨ Natural Result", use_column_width=True)
 
-                # 📥 Download
                 st.download_button(
                     "📥 Download",
                     data=cv2.imencode(".png", result)[1].tobytes(),
@@ -191,7 +192,6 @@ elif tool == "🧽 Smart Erase Tool":
 
             else:
                 st.warning("⚠️ Draw on image first!")
-
 # =========================
 # ✨ BLUR TOOL
 # =========================
