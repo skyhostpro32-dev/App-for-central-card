@@ -140,26 +140,28 @@ if uploaded_file and tool not in [
 # =======================
 elif tool == "🧽 Smart Erase Tool":
 
-    st.subheader("🧽 Smart Erase (Natural Fill AI)")
+    st.subheader("🧽 Smart Erase (Overlay + AI Fill)")
 
     if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
 
-        # 🔥 FIX: Resize (prevents crash)
+        # 🔥 Resize for stability
         image = image.resize((500, int(500 * image.height / image.width)))
+        img_np = np.array(image)
 
-        st.write("🖌 Draw → Apply → Natural remove")
+        st.write("🖌 Draw directly on image → Click Apply")
 
+        # 🎯 CANVAS OVER IMAGE (NO BUG)
         canvas = st_canvas(
-            fill_color="rgba(255,0,0,0.4)",
+            fill_color="rgba(255, 0, 0, 0.4)",
             stroke_width=30,
             stroke_color="#ff0000",
-            background_image=image,  # ✅ FIX (use PIL, NOT numpy)
-            update_streamlit=True,
-            height=500,
-            width=500,
+            background_image=image,   # ✅ PIL works stable here
+            update_streamlit=False,   # 🔥 IMPORTANT (prevents crash)
+            height=image.height,
+            width=image.width,
             drawing_mode="freedraw",
-            key="erase_canvas"
+            key="overlay_canvas",
         )
 
         # 🚀 APPLY BUTTON
@@ -167,14 +169,13 @@ elif tool == "🧽 Smart Erase Tool":
 
             if canvas.image_data is not None:
 
-                with st.spinner("AI removing object..."):
+                with st.spinner("✨ AI removing object naturally..."):
 
-                    # 🔥 Extract mask properly
+                    # 🔥 Extract mask (clean)
                     mask = canvas.image_data[:, :, 3]
                     mask = (mask > 50).astype("uint8") * 255
 
-                    img_np = np.array(image)
-
+                    # 🔥 Inpainting
                     result = cv2.inpaint(
                         img_np,
                         mask,
