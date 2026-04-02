@@ -140,43 +140,57 @@ if uploaded_file and tool not in [
 # =========================
 elif tool == "🧽 Smart Erase Tool":
 
-    st.subheader("🧽 Smart Manual Erase Tool")
+    st.subheader("🧽 Smart Erase (Natural Fill AI)")
 
-    components.html("""
-    <html><body style="text-align:center;">
-    <h3>Upload → Click → Erase</h3>
-    <input type="file" id="upload"><br><br>
-    <canvas id="c"></canvas>
+    if uploaded_file:
+        image = Image.open(uploaded_file).convert("RGB")
+        image = image.resize((500, int(500 * image.height / image.width)))
 
-    <script>
-    const upload = document.getElementById("upload");
-    const c = document.getElementById("c");
-    const ctx = c.getContext("2d");
-    let img = new Image();
+        st.write("🖌 Draw on object → Click Apply → Natural removal")
 
-    upload.onchange = e => {
-        img.src = URL.createObjectURL(e.target.files[0]);
-        img.onload = () => {
-            c.width = img.width;
-            c.height = img.height;
-            ctx.drawImage(img,0,0);
-        }
-    };
+        canvas = st_canvas(
+            fill_color="rgba(255,0,0,0.4)",
+            stroke_width=30,
+            stroke_color="#ff0000",
+            background_image=np.array(image),
+            height=500,
+            width=500,
+            drawing_mode="freedraw",
+            key="erase_canvas"
+        )
 
-    c.onclick = e => {
-        const rect = c.getBoundingClientRect();
-        const x = (e.clientX - rect.left) * (c.width / rect.width);
-        const y = (e.clientY - rect.top) * (c.height / rect.height);
+        # 🚀 APPLY BUTTON
+        if st.button("🚀 Apply Smart Erase"):
 
-        ctx.globalCompositeOperation="destination-out";
-        ctx.beginPath();
-        ctx.arc(x,y,30,0,Math.PI*2);
-        ctx.fill();
-        ctx.globalCompositeOperation="source-over";
-    };
-    </script>
-    </body></html>
-    """, height=600)
+            if canvas.image_data is not None:
+
+                with st.spinner("Removing object naturally..."):
+
+                    # 🔥 Extract mask
+                    mask = canvas.image_data[:, :, 3]
+                    mask = (mask > 50).astype("uint8") * 255
+
+                    img_np = np.array(image)
+
+                    # 🔥 NATURAL INPAINT
+                    result = cv2.inpaint(
+                        img_np,
+                        mask,
+                        7,  # stronger = better fill
+                        cv2.INPAINT_TELEA
+                    )
+
+                st.image(result, caption="✨ Natural Result", use_column_width=True)
+
+                # 📥 Download
+                st.download_button(
+                    "📥 Download",
+                    data=cv2.imencode(".png", result)[1].tobytes(),
+                    file_name="smart_erase.png"
+                )
+
+            else:
+                st.warning("⚠️ Draw on image first!")
 
 # =========================
 # ✨ BLUR TOOL
