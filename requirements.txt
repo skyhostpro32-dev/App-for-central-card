@@ -4,4 +4,4 @@ numpy
 opencv-python-headless
 rembg
 onnxruntime
-streamlit-drawable-canvas
+streamlit-drawable-canvas==0.9.3
