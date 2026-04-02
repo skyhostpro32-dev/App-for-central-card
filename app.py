@@ -10,7 +10,6 @@ import streamlit.components.v1 as components
 # CONFIG
 # =========================
 st.set_page_config(page_title="AI Image Dashboard", layout="wide")
-
 st.title("✨ AI Image Dashboard")
 
 # =========================
@@ -30,12 +29,12 @@ tool = st.sidebar.radio(
         "🧍 Auto Person Remove",
         "🧽 Smart Erase Tool",
         "🌄 Background Removal",
-        "✨ Blur Image/object"
+        "✨ Magic Eraser (Pro)"
     ]
 )
 
 # =========================
-# MAIN LAYOUT
+# LAYOUT
 # =========================
 col1, col2 = st.columns(2)
 
@@ -52,21 +51,17 @@ if uploaded_file and tool not in ["🧽 Smart Erase Tool", "✨ Magic Eraser (Pr
 
     # 🎨 BACKGROUND CHANGE
     if tool == "🎨 Background Change":
-        st.sidebar.subheader("🎨 Settings")
-
         color_hex = st.sidebar.color_picker("Pick Background Color", "#00ffaa")
         color = tuple(int(color_hex[i:i+2], 16) for i in (1, 3, 5))
 
         if st.sidebar.button("🚀 Apply Background"):
-            with st.spinner("Processing..."):
-                img_array = np.array(image)
-                gray = np.mean(img_array, axis=2)
-                mask = gray > 200
-                img_array[mask] = color
-                result = Image.fromarray(img_array)
+            img_array = np.array(image)
+            gray = np.mean(img_array, axis=2)
+            mask = gray > 200
+            img_array[mask] = color
+            result = Image.fromarray(img_array)
 
             with col2:
-                st.subheader("✅ Result")
                 st.image(result, use_column_width=True)
 
             buf = io.BytesIO()
@@ -75,47 +70,39 @@ if uploaded_file and tool not in ["🧽 Smart Erase Tool", "✨ Magic Eraser (Pr
 
     # ✨ ENHANCE
     elif tool == "✨ Enhance Image":
-        st.sidebar.subheader("✨ Settings")
-
         strength = st.sidebar.slider("Sharpness", 1, 5, 2)
 
         if st.sidebar.button("🚀 Enhance"):
-            with st.spinner("Enhancing..."):
-                result = image
-                for _ in range(strength):
-                    result = result.filter(ImageFilter.SHARPEN)
+            result = image
+            for _ in range(strength):
+                result = result.filter(ImageFilter.SHARPEN)
 
             with col2:
-                st.subheader("✅ Result")
                 st.image(result, use_column_width=True)
 
             buf = io.BytesIO()
             result.save(buf, format="PNG")
             st.download_button("📥 Download", buf.getvalue(), "enhanced.png")
 
-    # 🧍 PERSON REMOVE
+    # 🧍 AUTO PERSON REMOVE
     elif tool == "🧍 Auto Person Remove":
-        st.sidebar.subheader("🧍 Settings")
-
         if st.sidebar.button("🚀 Remove Person"):
-            with st.spinner("Removing..."):
-                mask_img = remove(image)
-                mask = np.array(mask_img)
+            mask_img = remove(image)
+            mask = np.array(mask_img)
 
-                if mask.shape[2] == 4:
-                    alpha = mask[:, :, 3]
-                else:
-                    alpha = cv2.cvtColor(mask, cv2.COLOR_RGB2GRAY)
+            if mask.shape[2] == 4:
+                alpha = mask[:, :, 3]
+            else:
+                alpha = cv2.cvtColor(mask, cv2.COLOR_RGB2GRAY)
 
-                _, binary_mask = cv2.threshold(alpha, 10, 255, cv2.THRESH_BINARY)
+            _, binary_mask = cv2.threshold(alpha, 10, 255, cv2.THRESH_BINARY)
 
-                img_np = np.array(image)
-                inpainted = cv2.inpaint(img_np, binary_mask, 3, cv2.INPAINT_TELEA)
+            img_np = np.array(image)
+            inpainted = cv2.inpaint(img_np, binary_mask, 3, cv2.INPAINT_TELEA)
 
-                result = Image.fromarray(inpainted)
+            result = Image.fromarray(inpainted)
 
             with col2:
-                st.subheader("✅ Person Removed")
                 st.image(result, use_column_width=True)
 
             st.download_button(
@@ -126,14 +113,10 @@ if uploaded_file and tool not in ["🧽 Smart Erase Tool", "✨ Magic Eraser (Pr
 
     # 🌄 BACKGROUND REMOVAL
     elif tool == "🌄 Background Removal":
-        st.sidebar.subheader("🌄 Settings")
-
         if st.sidebar.button("🚀 Remove Background"):
-            with st.spinner("Removing background..."):
-                output_image = remove(image.convert("RGBA"))
+            output_image = remove(image.convert("RGBA"))
 
             with col2:
-                st.subheader("✅ Background Removed")
                 st.image(output_image, use_column_width=True)
 
             buf = io.BytesIO()
@@ -190,7 +173,7 @@ elif tool == "🧽 Smart Erase Tool":
     """, height=600)
 
 # =========================
-# ✨ MAGIC ERASER PRO
+# ✨ MAGIC ERASER PRO (FIXED)
 # =========================
 elif tool == "✨ Magic Eraser (Pro)":
 
@@ -199,72 +182,136 @@ elif tool == "✨ Magic Eraser (Pro)":
     components.html("""
     <!DOCTYPE html>
     <html>
-    <body style="text-align:center;">
+    <body style="font-family:Arial;text-align:center;background:#f5f5f5;">
+
     <h3>Upload → Click → Smart Remove</h3>
 
-    <input type="file" id="upload"><br>
+    <input type="file" id="upload"><br><br>
+
+    <label>Brush Size:</label>
     <input type="range" id="brush" min="10" max="60" value="25">
 
     <br><br>
-    <button onclick="apply()">🚀 Apply</button>
-    <a id="download" download="result.png" style="display:none;">📥 Download</a>
+
+    <button id="applyBtn">🚀 Apply Remove</button>
+    <a id="download" download="result.png"
+       style="display:none;background:green;color:white;padding:10px;border-radius:5px;">
+       📥 Download
+    </a>
 
     <br><br>
-    <canvas id="c"></canvas>
+
+    <canvas id="original"></canvas>
+    <canvas id="edited"></canvas>
 
     <script>
-    let c=document.getElementById("c");
-    let ctx=c.getContext("2d");
-    let img=new Image();
-    let pts=[];
+    const upload = document.getElementById("upload");
+    const applyBtn = document.getElementById("applyBtn");
 
-    upload.onchange=e=>{
-        img.src=URL.createObjectURL(e.target.files[0]);
-        img.onload=()=>{
-            c.width=img.width;
-            c.height=img.height;
-            ctx.drawImage(img,0,0);
+    const original = document.getElementById("original");
+    const edited = document.getElementById("edited");
+
+    const ctxO = original.getContext("2d");
+    const ctxE = edited.getContext("2d");
+
+    let img = new Image();
+    let points = [];
+
+    upload.onchange = function(e){
+        const file = e.target.files[0];
+        img.src = URL.createObjectURL(file);
+
+        img.onload = function(){
+            original.width = edited.width = img.width;
+            original.height = edited.height = img.height;
+
+            ctxO.drawImage(img,0,0);
+            ctxE.drawImage(img,0,0);
+
+            points = [];
         }
     }
 
-    c.onclick=e=>{
-        let r=c.getBoundingClientRect();
-        let x=(e.clientX-r.left)*(c.width/r.width);
-        let y=(e.clientY-r.top)*(c.height/r.height);
-        let size=document.getElementById("brush").value;
-        pts.push({x,y,size});
+    original.onclick = function(e){
+        const rect = original.getBoundingClientRect();
+        const x = (e.clientX - rect.left) * (original.width / rect.width);
+        const y = (e.clientY - rect.top) * (original.height / rect.height);
+        const size = document.getElementById("brush").value;
+
+        points.push({x,y,size});
+
+        ctxO.drawImage(img,0,0);
+        ctxO.fillStyle="rgba(255,0,0,0.4)";
+
+        points.forEach(p=>{
+            ctxO.beginPath();
+            ctxO.arc(p.x,p.y,p.size,0,Math.PI*2);
+            ctxO.fill();
+        });
     }
 
-    function apply(){
-        let data=ctx.getImageData(0,0,c.width,c.height);
-        let d=data.data;
+    function blendErase(x,y,radius){
+        let imageData = ctxE.getImageData(0,0,edited.width,edited.height);
+        let data = imageData.data;
 
-        pts.forEach(p=>{
-            for(let dy=-p.size;dy<p.size;dy++){
-                for(let dx=-p.size;dx<p.size;dx++){
-                    let dist=Math.sqrt(dx*dx+dy*dy);
-                    if(dist<p.size){
-                        let px=Math.floor(p.x+dx);
-                        let py=Math.floor(p.y+dy);
-                        let i=(py*c.width+px)*4;
-                        d[i]=d[i+4];
-                        d[i+1]=d[i+5];
-                        d[i+2]=d[i+6];
+        for(let dy=-radius;dy<radius;dy++){
+            for(let dx=-radius;dx<radius;dx++){
+
+                let dist = Math.sqrt(dx*dx+dy*dy);
+                if(dist<radius){
+
+                    let px = Math.floor(x+dx);
+                    let py = Math.floor(y+dy);
+
+                    if(px<1||py<1||px>=edited.width-1||py>=edited.height-1)
+                        continue;
+
+                    let i = (py*edited.width+px)*4;
+
+                    let sumR=0,sumG=0,sumB=0,count=0;
+
+                    for(let sy=-3;sy<=3;sy++){
+                        for(let sx=-3;sx<=3;sx++){
+                            let ni=((py+sy)*edited.width+(px+sx))*4;
+                            sumR+=data[ni];
+                            sumG+=data[ni+1];
+                            sumB+=data[ni+2];
+                            count++;
+                        }
                     }
+
+                    data[i]=sumR/count;
+                    data[i+1]=sumG/count;
+                    data[i+2]=sumB/count;
                 }
             }
+        }
+
+        ctxE.putImageData(imageData,0,0);
+    }
+
+    applyBtn.onclick = function(){
+
+        if(points.length===0){
+            alert("⚠️ Click on image first");
+            return;
+        }
+
+        ctxE.drawImage(img,0,0);
+
+        points.forEach(p=>{
+            blendErase(p.x,p.y,p.size);
         });
 
-        ctx.putImageData(data,0,0);
-
-        let dl=document.getElementById("download");
-        dl.href=c.toDataURL();
-        dl.style.display="inline";
+        const dl = document.getElementById("download");
+        dl.href = edited.toDataURL("image/png");
+        dl.style.display = "inline-block";
     }
     </script>
+
     </body>
     </html>
-    """, height=650)
+    """, height=700)
 
 # =========================
 # DEFAULT
@@ -276,4 +323,4 @@ else:
 # FOOTER
 # =========================
 st.markdown("---")
-
+st.caption("🚀 All-in-One AI Image Dashboard")
