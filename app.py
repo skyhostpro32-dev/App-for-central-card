@@ -5,6 +5,7 @@ import io
 import cv2
 from rembg import remove
 import streamlit.components.v1 as components
+from streamlit_drawable_canvas import st_canvas
 
 # =========================
 # CONFIG
@@ -29,7 +30,8 @@ tool = st.sidebar.radio(
         "🧍 Auto Person Remove",
         "🧽 Smart Erase Tool",
         "🌄 Background Removal",
-        "✨ Blur Object Tool"   # ✅ UPDATED NAME
+        "✨ Blur Object Tool",
+        "🧠 Generative Fill (Pro)"
     ]
 )
 
@@ -41,7 +43,11 @@ col1, col2 = st.columns(2)
 # =========================
 # IMAGE BASED TOOLS
 # =========================
-if uploaded_file and tool not in ["🧽 Smart Erase Tool", "✨ Blur Object Tool"]:
+if uploaded_file and tool not in [
+    "🧽 Smart Erase Tool",
+    "✨ Blur Object Tool",
+    "🧠 Generative Fill (Pro)"
+]:
     image = Image.open(uploaded_file).convert("RGB")
     image.thumbnail((600, 600))
 
@@ -173,108 +179,128 @@ elif tool == "🧽 Smart Erase Tool":
     """, height=600)
 
 # =========================
-# ✨ BLUR OBJECT TOOL (FIXED)
+# ✨ BLUR TOOL
 # =========================
 elif tool == "✨ Blur Object Tool":
 
     st.subheader("✨ Blur Object Tool")
 
     components.html("""
-    <!DOCTYPE html>
-    <html>
-    <body style="text-align:center;font-family:Arial;">
-
-    <h3>Upload → Click → Blur Object</h3>
-
+    <html><body style="text-align:center;">
+    <h3>Upload → Click → Blur</h3>
     <input type="file" id="upload"><br><br>
-
-    <label>Brush Size:</label>
-    <input type="range" id="brush" min="10" max="80" value="30">
-
-    <br><br>
-
-    <button id="applyBtn">🚀 Apply Blur</button>
-    <a id="download" download="blurred.png"
-       style="display:none;background:green;color:white;padding:10px;border-radius:5px;">
-       📥 Download
-    </a>
-
-    <br><br>
-
-    <canvas id="canvas"></canvas>
+    <input type="range" id="brush" min="10" max="80" value="30"><br><br>
+    <button id="apply">Apply Blur</button>
+    <canvas id="c"></canvas>
 
     <script>
-    const upload = document.getElementById("upload");
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-    const applyBtn = document.getElementById("applyBtn");
+    const upload=document.getElementById("upload");
+    const canvas=document.getElementById("c");
+    const ctx=canvas.getContext("2d");
+    const apply=document.getElementById("apply");
 
-    let img = new Image();
-    let points = [];
+    let img=new Image();
+    let pts=[];
 
-    upload.onchange = function(e){
-        img.src = URL.createObjectURL(e.target.files[0]);
-
-        img.onload = function(){
-            canvas.width = img.width;
-            canvas.height = img.height;
+    upload.onchange=e=>{
+        img.src=URL.createObjectURL(e.target.files[0]);
+        img.onload=()=>{
+            canvas.width=img.width;
+            canvas.height=img.height;
             ctx.drawImage(img,0,0);
-            points = [];
         }
     }
 
-    canvas.onclick = function(e){
-        const rect = canvas.getBoundingClientRect();
-        const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-        const y = (e.clientY - rect.top) * (canvas.height / rect.height);
-        const size = document.getElementById("brush").value;
+    canvas.onclick=e=>{
+        let r=canvas.getBoundingClientRect();
+        let x=(e.clientX-r.left)*(canvas.width/r.width);
+        let y=(e.clientY-r.top)*(canvas.height/r.height);
+        let size=document.getElementById("brush").value;
+        pts.push({x,y,size});
 
-        points.push({x,y,size});
-
-        ctx.fillStyle = "rgba(255,0,0,0.3)";
+        ctx.fillStyle="rgba(255,0,0,0.3)";
         ctx.beginPath();
         ctx.arc(x,y,size,0,Math.PI*2);
         ctx.fill();
     }
 
-    applyBtn.onclick = function(){
-
-        if(points.length === 0){
-            alert("Click on image first!");
-            return;
-        }
-
+    apply.onclick=()=>{
         ctx.drawImage(img,0,0);
 
-        points.forEach(p => {
+        pts.forEach(p=>{
             ctx.save();
             ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+            ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
             ctx.clip();
 
-            ctx.filter = "blur(12px)";
+            ctx.filter="blur(12px)";
             ctx.drawImage(img,0,0);
 
             ctx.restore();
         });
 
-        ctx.filter = "none";
-
-        const dl = document.getElementById("download");
-        dl.href = canvas.toDataURL("image/png");
-        dl.style.display = "inline-block";
+        ctx.filter="none";
     }
     </script>
+    </body></html>
+    """, height=650)
 
-    </body>
-    </html>
-    """, height=700)
+# =========================
+# 🧠 GENERATIVE FILL (FIXED)
+# =========================
+elif tool == "🧠 Generative Fill (Pro)":
+
+    st.subheader("🧠 AI Generative Fill (Draw → Apply → Download)")
+
+    if uploaded_file:
+        image = Image.open(uploaded_file).convert("RGB")
+
+        st.write("🖌 Draw over object → Click Apply")
+
+        canvas_result = st_canvas(
+            fill_color="rgba(255, 0, 0, 0.4)",
+            stroke_width=25,
+            stroke_color="#ff0000",
+            background_image=image,
+            height=500,
+            drawing_mode="freedraw",
+            key="canvas",
+        )
+
+        if st.button("🚀 Apply AI Remove"):
+
+            if canvas_result.image_data is not None:
+
+                with st.spinner("Generating natural fill..."):
+
+                    mask = canvas_result.image_data[:, :, 3]
+                    mask = (mask > 50).astype("uint8") * 255
+
+                    img_np = np.array(image)
+
+                    result = cv2.inpaint(
+                        img_np,
+                        mask,
+                        7,
+                        cv2.INPAINT_TELEA
+                    )
+
+                st.image(result, caption="✨ Natural Result", use_column_width=True)
+
+                st.download_button(
+                    "📥 Download Result",
+                    data=cv2.imencode(".png", result)[1].tobytes(),
+                    file_name="ai_removed.png"
+                )
+
+            else:
+                st.warning("⚠️ Draw on image first")
 
 # =========================
 # DEFAULT
 # =========================
 else:
-    st.info("👈 Upload image or select a tool")
+    st.info("👈 Upload image or select tool")
 
 # =========================
 # FOOTER
