@@ -28,7 +28,8 @@ tool = st.sidebar.radio(
         "🎨 Background Change",
         "✨ Enhance Image",
         "🧍 Auto Person Remove",
-        "🧽 Smart Erase Tool"
+        "🧽 Smart Erase Tool",
+        "🌄 Background Removal"
     ]
 )
 
@@ -38,7 +39,7 @@ tool = st.sidebar.radio(
 col1, col2 = st.columns(2)
 
 # =========================
-# IF IMAGE UPLOADED
+# IMAGE BASED TOOLS
 # =========================
 if uploaded_file and tool != "🧽 Smart Erase Tool":
     image = Image.open(uploaded_file).convert("RGB")
@@ -82,7 +83,7 @@ if uploaded_file and tool != "🧽 Smart Erase Tool":
         strength = st.sidebar.slider("Sharpness", 1, 5, 2)
 
         if st.sidebar.button("🚀 Enhance"):
-            with st.spinner("Enhancing..."):
+            with st.spinner("Enhancing image..."):
                 result = image
                 for _ in range(strength):
                     result = result.filter(ImageFilter.SHARPEN)
@@ -128,24 +129,44 @@ if uploaded_file and tool != "🧽 Smart Erase Tool":
                 file_name="no_person.png"
             )
 
+    # =========================
+    # 🌄 BACKGROUND REMOVAL
+    # =========================
+    elif tool == "🌄 Background Removal":
+        st.sidebar.subheader("🌄 Settings")
+
+        if st.sidebar.button("🚀 Remove Background"):
+            with st.spinner("Removing background..."):
+                output_image = remove(image.convert("RGBA"))
+
+            with col2:
+                st.subheader("✅ Background Removed")
+                st.image(output_image, use_column_width=True)
+
+            buf = io.BytesIO()
+            output_image.save(buf, format="PNG")
+
+            st.download_button(
+                "📥 Download",
+                buf.getvalue(),
+                "background_removed.png",
+                "image/png"
+            )
+
 # =========================
-# 🧽 SMART ERASE TOOL (HTML INSIDE APP)
+# 🧽 SMART ERASE TOOL (HTML)
 # =========================
 elif tool == "🧽 Smart Erase Tool":
 
     st.subheader("🧽 Smart Manual Erase Tool")
 
     html_code = """
-    <!DOCTYPE html>
     <html>
-    <body style="margin:0;">
-    <iframe srcdoc='
-    """ + """<!DOCTYPE html>
-    <html>
-    <body style="margin:0;text-align:center;">
+    <body style="text-align:center;">
     <h3>Upload → Click → Erase</h3>
     <input type="file" id="upload"><br><br>
     <canvas id="c"></canvas>
+
     <script>
     const upload = document.getElementById("upload");
     const c = document.getElementById("c");
@@ -175,18 +196,15 @@ elif tool == "🧽 Smart Erase Tool":
     </script>
     </body>
     </html>
-    """ + """' width="100%" height="600"></iframe>
-    </body>
-    </html>
     """
 
-    components.html(html_code, height=650)
+    components.html(html_code, height=600)
 
 # =========================
-# DEFAULT MESSAGE
+# DEFAULT
 # =========================
 else:
-    st.info("👈 Upload image or choose Smart Erase Tool")
+    st.info("👈 Upload image or select Smart Erase Tool")
 
 # =========================
 # FOOTER
