@@ -29,7 +29,8 @@ tool = st.sidebar.radio(
         "✨ Enhance Image",
         "🧍 Auto Person Remove",
         "🧽 Smart Erase Tool",
-        "🌄 Background Removal"
+        "🌄 Background Removal",
+        "✨ Blur Image/object"
     ]
 )
 
@@ -41,7 +42,7 @@ col1, col2 = st.columns(2)
 # =========================
 # IMAGE BASED TOOLS
 # =========================
-if uploaded_file and tool != "🧽 Smart Erase Tool":
+if uploaded_file and tool not in ["🧽 Smart Erase Tool", "✨ Magic Eraser (Pro)"]:
     image = Image.open(uploaded_file).convert("RGB")
     image.thumbnail((600, 600))
 
@@ -49,9 +50,7 @@ if uploaded_file and tool != "🧽 Smart Erase Tool":
         st.subheader("📸 Original Image")
         st.image(image, use_column_width=True)
 
-    # =========================
     # 🎨 BACKGROUND CHANGE
-    # =========================
     if tool == "🎨 Background Change":
         st.sidebar.subheader("🎨 Settings")
 
@@ -74,16 +73,14 @@ if uploaded_file and tool != "🧽 Smart Erase Tool":
             result.save(buf, format="PNG")
             st.download_button("📥 Download", buf.getvalue(), "background.png")
 
-    # =========================
-    # ✨ ENHANCE IMAGE
-    # =========================
+    # ✨ ENHANCE
     elif tool == "✨ Enhance Image":
         st.sidebar.subheader("✨ Settings")
 
         strength = st.sidebar.slider("Sharpness", 1, 5, 2)
 
         if st.sidebar.button("🚀 Enhance"):
-            with st.spinner("Enhancing image..."):
+            with st.spinner("Enhancing..."):
                 result = image
                 for _ in range(strength):
                     result = result.filter(ImageFilter.SHARPEN)
@@ -96,14 +93,12 @@ if uploaded_file and tool != "🧽 Smart Erase Tool":
             result.save(buf, format="PNG")
             st.download_button("📥 Download", buf.getvalue(), "enhanced.png")
 
-    # =========================
-    # 🧍 AUTO PERSON REMOVE
-    # =========================
+    # 🧍 PERSON REMOVE
     elif tool == "🧍 Auto Person Remove":
         st.sidebar.subheader("🧍 Settings")
 
         if st.sidebar.button("🚀 Remove Person"):
-            with st.spinner("Removing person..."):
+            with st.spinner("Removing..."):
                 mask_img = remove(image)
                 mask = np.array(mask_img)
 
@@ -129,9 +124,7 @@ if uploaded_file and tool != "🧽 Smart Erase Tool":
                 file_name="no_person.png"
             )
 
-    # =========================
     # 🌄 BACKGROUND REMOVAL
-    # =========================
     elif tool == "🌄 Background Removal":
         st.sidebar.subheader("🌄 Settings")
 
@@ -154,15 +147,14 @@ if uploaded_file and tool != "🧽 Smart Erase Tool":
             )
 
 # =========================
-# 🧽 SMART ERASE TOOL (HTML)
+# 🧽 SMART ERASE TOOL
 # =========================
 elif tool == "🧽 Smart Erase Tool":
 
     st.subheader("🧽 Smart Manual Erase Tool")
 
-    html_code = """
-    <html>
-    <body style="text-align:center;">
+    components.html("""
+    <html><body style="text-align:center;">
     <h3>Upload → Click → Erase</h3>
     <input type="file" id="upload"><br><br>
     <canvas id="c"></canvas>
@@ -194,20 +186,94 @@ elif tool == "🧽 Smart Erase Tool":
         ctx.globalCompositeOperation="source-over";
     };
     </script>
+    </body></html>
+    """, height=600)
+
+# =========================
+# ✨ MAGIC ERASER PRO
+# =========================
+elif tool == "✨ Magic Eraser (Pro)":
+
+    st.subheader("✨ Smart Magic Eraser (Natural Fill)")
+
+    components.html("""
+    <!DOCTYPE html>
+    <html>
+    <body style="text-align:center;">
+    <h3>Upload → Click → Smart Remove</h3>
+
+    <input type="file" id="upload"><br>
+    <input type="range" id="brush" min="10" max="60" value="25">
+
+    <br><br>
+    <button onclick="apply()">🚀 Apply</button>
+    <a id="download" download="result.png" style="display:none;">📥 Download</a>
+
+    <br><br>
+    <canvas id="c"></canvas>
+
+    <script>
+    let c=document.getElementById("c");
+    let ctx=c.getContext("2d");
+    let img=new Image();
+    let pts=[];
+
+    upload.onchange=e=>{
+        img.src=URL.createObjectURL(e.target.files[0]);
+        img.onload=()=>{
+            c.width=img.width;
+            c.height=img.height;
+            ctx.drawImage(img,0,0);
+        }
+    }
+
+    c.onclick=e=>{
+        let r=c.getBoundingClientRect();
+        let x=(e.clientX-r.left)*(c.width/r.width);
+        let y=(e.clientY-r.top)*(c.height/r.height);
+        let size=document.getElementById("brush").value;
+        pts.push({x,y,size});
+    }
+
+    function apply(){
+        let data=ctx.getImageData(0,0,c.width,c.height);
+        let d=data.data;
+
+        pts.forEach(p=>{
+            for(let dy=-p.size;dy<p.size;dy++){
+                for(let dx=-p.size;dx<p.size;dx++){
+                    let dist=Math.sqrt(dx*dx+dy*dy);
+                    if(dist<p.size){
+                        let px=Math.floor(p.x+dx);
+                        let py=Math.floor(p.y+dy);
+                        let i=(py*c.width+px)*4;
+                        d[i]=d[i+4];
+                        d[i+1]=d[i+5];
+                        d[i+2]=d[i+6];
+                    }
+                }
+            }
+        });
+
+        ctx.putImageData(data,0,0);
+
+        let dl=document.getElementById("download");
+        dl.href=c.toDataURL();
+        dl.style.display="inline";
+    }
+    </script>
     </body>
     </html>
-    """
-
-    components.html(html_code, height=600)
+    """, height=650)
 
 # =========================
 # DEFAULT
 # =========================
 else:
-    st.info("👈 Upload image or select Smart Erase Tool")
+    st.info("👈 Upload image or select a tool")
 
 # =========================
 # FOOTER
 # =========================
 st.markdown("---")
-st.caption("🚀 All-in-One AI Image Dashboard")
+
