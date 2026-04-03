@@ -28,7 +28,6 @@ tool = st.sidebar.radio(
         "🎨 Background Change",
         "✨ Enhance Image",
         "🧍 Auto Person Remove",
-        "🧽 Smart Erase Tool",
         "🌄 Background Removal",
         "✨ Blur Object Tool",
         "🧠 Generative Fill (Pro)"
@@ -134,74 +133,6 @@ if uploaded_file and tool not in [
                 "background_removed.png",
                 "image/png"
             )
-
-# =========================
-# 🧠 PROMPT-BASED REMOVE TOOL
-# =========================
-elif tool == "🧠 Prompt AI Remove":
-
-    st.subheader("🧠 Prompt-Based Object Removal")
-
-    if uploaded_file:
-        image = Image.open(uploaded_file).convert("RGB")
-
-        # 🔥 Resize for stability
-        image = image.resize((500, int(500 * image.height / image.width)))
-        img_np = np.array(image)
-
-        st.image(image, caption="📸 Original Image", use_column_width=False)
-
-        # 🧠 PROMPT INPUT
-        prompt = st.text_input(
-            "🧠 AI Prompt",
-            "Remove the person and generate a realistic background"
-        )
-
-        st.write("🖌 Draw mask on object you want to remove")
-
-        # 🎯 DRAW MASK
-        canvas = st_canvas(
-            fill_color="rgba(255,0,0,0.4)",
-            stroke_width=30,
-            stroke_color="#ff0000",
-            background_color="rgba(0,0,0,0)",  # 🔥 stable (no crash)
-            height=image.height,
-            width=image.width,
-            drawing_mode="freedraw",
-            key="prompt_canvas"
-        )
-
-        # 🚀 APPLY BUTTON
-        if st.button("🚀 Apply AI Remove"):
-
-            if canvas.image_data is not None:
-
-                with st.spinner("🧠 Processing with AI..."):
-
-                    st.write(f"🔎 Prompt used: **{prompt}**")
-
-                    # 🔥 MASK EXTRACTION
-                    mask = canvas.image_data[:, :, 3]
-                    mask = (mask > 50).astype("uint8") * 255
-
-                    # 🔥 INPAINT (current engine)
-                    result = cv2.inpaint(
-                        img_np,
-                        mask,
-                        7,
-                        cv2.INPAINT_TELEA
-                    )
-
-                st.image(result, caption="✨ AI Result", use_column_width=True)
-
-                st.download_button(
-                    "📥 Download Result",
-                    data=cv2.imencode(".png", result)[1].tobytes(),
-                    file_name="ai_prompt_removed.png"
-                )
-
-            else:
-                st.warning("⚠️ Please draw mask on image")
 # =========================
 # ✨ BLUR TOOL
 # =========================
