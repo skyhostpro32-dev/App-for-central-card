@@ -136,11 +136,11 @@ if uploaded_file and tool not in [
             )
 
 # =========================
-# 🧽 SMART ERASE TOOL
-# =======================
-elif tool == "🧽 Smart Erase Tool":
+# 🧠 PROMPT-BASED REMOVE TOOL
+# =========================
+elif tool == "🧠 Prompt AI Remove":
 
-    st.subheader("🧽 Smart Erase (Overlay + AI Fill)")
+    st.subheader("🧠 Prompt-Based Object Removal")
 
     if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
@@ -149,33 +149,42 @@ elif tool == "🧽 Smart Erase Tool":
         image = image.resize((500, int(500 * image.height / image.width)))
         img_np = np.array(image)
 
-        st.write("🖌 Draw directly on image → Click Apply")
+        st.image(image, caption="📸 Original Image", use_column_width=False)
 
-        # 🎯 CANVAS OVER IMAGE (NO BUG)
+        # 🧠 PROMPT INPUT
+        prompt = st.text_input(
+            "🧠 AI Prompt",
+            "Remove the person and generate a realistic background"
+        )
+
+        st.write("🖌 Draw mask on object you want to remove")
+
+        # 🎯 DRAW MASK
         canvas = st_canvas(
-            fill_color="rgba(255, 0, 0, 0.4)",
+            fill_color="rgba(255,0,0,0.4)",
             stroke_width=30,
             stroke_color="#ff0000",
-            background_image=image,   # ✅ PIL works stable here
-            update_streamlit=False,   # 🔥 IMPORTANT (prevents crash)
+            background_color="rgba(0,0,0,0)",  # 🔥 stable (no crash)
             height=image.height,
             width=image.width,
             drawing_mode="freedraw",
-            key="overlay_canvas",
+            key="prompt_canvas"
         )
 
         # 🚀 APPLY BUTTON
-        if st.button("🚀 Apply Smart Erase"):
+        if st.button("🚀 Apply AI Remove"):
 
             if canvas.image_data is not None:
 
-                with st.spinner("✨ AI removing object naturally..."):
+                with st.spinner("🧠 Processing with AI..."):
 
-                    # 🔥 Extract mask (clean)
+                    st.write(f"🔎 Prompt used: **{prompt}**")
+
+                    # 🔥 MASK EXTRACTION
                     mask = canvas.image_data[:, :, 3]
                     mask = (mask > 50).astype("uint8") * 255
 
-                    # 🔥 Inpainting
+                    # 🔥 INPAINT (current engine)
                     result = cv2.inpaint(
                         img_np,
                         mask,
@@ -183,16 +192,16 @@ elif tool == "🧽 Smart Erase Tool":
                         cv2.INPAINT_TELEA
                     )
 
-                st.image(result, caption="✨ Natural Result", use_column_width=True)
+                st.image(result, caption="✨ AI Result", use_column_width=True)
 
                 st.download_button(
-                    "📥 Download",
+                    "📥 Download Result",
                     data=cv2.imencode(".png", result)[1].tobytes(),
-                    file_name="smart_erase.png"
+                    file_name="ai_prompt_removed.png"
                 )
 
             else:
-                st.warning("⚠️ Draw on image first!")
+                st.warning("⚠️ Please draw mask on image")
 # =========================
 # ✨ BLUR TOOL
 # =========================
