@@ -35,39 +35,34 @@ tool = st.sidebar.radio(
 )
 
 # =========================
-# LAYOUT
+# BACKGROUND / ENHANCE / REMOVE
 # =========================
-col1, col2 = st.columns(2)
+if uploaded_file and tool not in ["✨ Blur Object Tool", "🧠 Generative Fill (Pro)"]:
 
-# =========================
-# IMAGE BASED TOOLS
-# =========================
-if uploaded_file and tool not in [
-    "🧽 Smart Erase Tool",
-    "✨ Blur Object Tool",
-    "🧠 Generative Fill (Pro)"
-]:
     image = Image.open(uploaded_file).convert("RGB")
     image.thumbnail((600, 600))
 
-    with col1:
-        st.subheader("📸 Original Image")
-        st.image(image, use_column_width=True)
+    st.subheader("📸 Original Image")
+    st.image(image, use_column_width=True)
 
     # 🎨 BACKGROUND CHANGE
     if tool == "🎨 Background Change":
+
         color_hex = st.sidebar.color_picker("Pick Background Color", "#00ffaa")
         color = tuple(int(color_hex[i:i+2], 16) for i in (1, 3, 5))
 
         if st.sidebar.button("🚀 Apply Background"):
+
             img_array = np.array(image)
             gray = np.mean(img_array, axis=2)
             mask = gray > 200
             img_array[mask] = color
+
             result = Image.fromarray(img_array)
 
-            with col2:
-                st.image(result, use_column_width=True)
+            st.divider()
+            st.subheader("✨ Result Image")
+            st.image(result, use_column_width=True)
 
             buf = io.BytesIO()
             result.save(buf, format="PNG")
@@ -75,15 +70,18 @@ if uploaded_file and tool not in [
 
     # ✨ ENHANCE
     elif tool == "✨ Enhance Image":
+
         strength = st.sidebar.slider("Sharpness", 1, 5, 2)
 
         if st.sidebar.button("🚀 Enhance"):
+
             result = image
             for _ in range(strength):
                 result = result.filter(ImageFilter.SHARPEN)
 
-            with col2:
-                st.image(result, use_column_width=True)
+            st.divider()
+            st.subheader("✨ Result Image")
+            st.image(result, use_column_width=True)
 
             buf = io.BytesIO()
             result.save(buf, format="PNG")
@@ -91,7 +89,9 @@ if uploaded_file and tool not in [
 
     # 🧍 PERSON REMOVE
     elif tool == "🧍 Auto Person Remove":
+
         if st.sidebar.button("🚀 Remove Person"):
+
             mask_img = remove(image)
             mask = np.array(mask_img)
 
@@ -107,8 +107,9 @@ if uploaded_file and tool not in [
 
             result = Image.fromarray(inpainted)
 
-            with col2:
-                st.image(result, use_column_width=True)
+            st.divider()
+            st.subheader("✨ Result Image")
+            st.image(result, use_column_width=True)
 
             st.download_button(
                 "📥 Download",
@@ -118,11 +119,14 @@ if uploaded_file and tool not in [
 
     # 🌄 BACKGROUND REMOVAL
     elif tool == "🌄 Background Removal":
+
         if st.sidebar.button("🚀 Remove Background"):
+
             output_image = remove(image.convert("RGBA"))
 
-            with col2:
-                st.image(output_image, use_column_width=True)
+            st.divider()
+            st.subheader("✨ Result Image")
+            st.image(output_image, use_column_width=True)
 
             buf = io.BytesIO()
             output_image.save(buf, format="PNG")
@@ -133,8 +137,9 @@ if uploaded_file and tool not in [
                 "background_removed.png",
                 "image/png"
             )
+
 # =========================
-# ✨ BLUR TOOL
+# ✨ BLUR TOOL (HTML)
 # =========================
 elif tool == "✨ Blur Object Tool":
 
@@ -171,6 +176,7 @@ elif tool == "✨ Blur Object Tool":
         let x=(e.clientX-r.left)*(canvas.width/r.width);
         let y=(e.clientY-r.top)*(canvas.height/r.height);
         let size=document.getElementById("brush").value;
+
         pts.push({x,y,size});
 
         ctx.fillStyle="rgba(255,0,0,0.3)";
@@ -205,21 +211,27 @@ elif tool == "✨ Blur Object Tool":
 # =========================
 elif tool == "🧠 Generative Fill (Pro)":
 
-    st.subheader("🧠 AI Generative Fill (Draw → Apply → Download)")
+    st.subheader("🧠 AI Generative Fill")
 
     if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
 
-        st.write("🖌 Draw over object → Click Apply")
+        # ORIGINAL TOP
+        st.subheader("📸 Original Image")
+        st.image(image, use_column_width=True)
 
+        st.write("🖌 Draw mask below → Click Apply")
+
+        # CANVAS (NO CRASH)
         canvas_result = st_canvas(
             fill_color="rgba(255, 0, 0, 0.4)",
             stroke_width=25,
             stroke_color="#ff0000",
-            background_image=image,
+            background_color="rgba(0,0,0,0)",
             height=500,
+            width=500,
             drawing_mode="freedraw",
-            key="canvas",
+            key="canvas_fixed",
         )
 
         if st.button("🚀 Apply AI Remove"):
@@ -231,7 +243,7 @@ elif tool == "🧠 Generative Fill (Pro)":
                     mask = canvas_result.image_data[:, :, 3]
                     mask = (mask > 50).astype("uint8") * 255
 
-                    img_np = np.array(image)
+                    img_np = np.array(image.resize((500, 500)))
 
                     result = cv2.inpaint(
                         img_np,
@@ -240,7 +252,9 @@ elif tool == "🧠 Generative Fill (Pro)":
                         cv2.INPAINT_TELEA
                     )
 
-                st.image(result, caption="✨ Natural Result", use_column_width=True)
+                st.divider()
+                st.subheader("✨ Result Image")
+                st.image(result, use_column_width=True)
 
                 st.download_button(
                     "📥 Download Result",
