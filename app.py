@@ -184,11 +184,11 @@ elif tool == "🧠 Generative Fill (Pro)":
 # MANUAL ERASER (FIXED)
 # ========================
 # =========================
-# 🖌 MANUAL OBJECT ERASER (FINAL - TRUE UNDO FIX)
+# 🖌 MANUAL OBJECT ERASER (UNDO FIXED)
 # =========================
 elif tool == "🖌 Manual Object Eraser":
 
-    st.subheader("🖌 Smart Object Eraser (Perfect Undo)")
+    st.subheader("🖌 Smart Object Eraser (Undo + Natural Fill)")
 
     components.html("""
     <html>
@@ -214,11 +214,9 @@ elif tool == "🖌 Manual Object Eraser":
 
     let img = new Image();
     let pts = [];
-    let history = []; // 🔥 REAL HISTORY
+    let history = []; // ✅ history stack
 
-    // =========================
     // LOAD IMAGE
-    // =========================
     document.getElementById("upload").onchange = e => {
         img.src = URL.createObjectURL(e.target.files[0]);
 
@@ -227,22 +225,18 @@ elif tool == "🖌 Manual Object Eraser":
             canvas.height = img.height;
             ctx.drawImage(img, 0, 0);
 
-            // Fit screen
+            // Fit display
             let scale = Math.min(window.innerWidth / img.width, 0.8);
             canvas.style.width = img.width * scale + "px";
             canvas.style.height = img.height * scale + "px";
 
+            // reset
             pts = [];
             history = [];
-
-            // 🔥 Save initial state
-            history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
         }
     }
 
-    // =========================
     // CLICK MASK
-    // =========================
     canvas.onclick = e => {
         const r = canvas.getBoundingClientRect();
         const scaleX = canvas.width / r.width;
@@ -258,7 +252,7 @@ elif tool == "🖌 Manual Object Eraser":
     }
 
     function redraw() {
-        ctx.putImageData(history[history.length - 1], 0, 0);
+        ctx.drawImage(img, 0, 0);
 
         pts.forEach(p => {
             ctx.fillStyle = "rgba(255,0,0,0.3)";
@@ -268,16 +262,39 @@ elif tool == "🖌 Manual Object Eraser":
         });
     }
 
-    // =========================
-    // 🚀 APPLY (REAL FILL)
-    // =========================
+    // 🔁 UNDO (FIXED)
+    document.getElementById("undo").onclick = () => {
+
+        // Undo clicks first
+        if (pts.length > 0) {
+            pts.pop();
+            redraw();
+            return;
+        }
+
+        // Undo applied image
+        if (history.length > 0) {
+            let prev = history.pop();
+            img.src = prev;
+
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0);
+            }
+        }
+    }
+
+    // 🚀 APPLY (REAL OBJECT REMOVE)
     document.getElementById("apply").onclick = () => {
+
+        // ✅ SAVE STATE BEFORE CHANGE
+        history.push(canvas.toDataURL());
 
         let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let data = imageData.data;
 
         let mask = new Uint8Array(canvas.width * canvas.height);
 
+        // CREATE MASK
         pts.forEach(p => {
             for (let y = -p.size; y <= p.size; y++) {
                 for (let x = -p.size; x <= p.size; x++) {
@@ -295,6 +312,7 @@ elif tool == "🖌 Manual Object Eraser":
             }
         });
 
+        // 🔥 STRONG FILL (MULTI-PASS)
         for (let iter = 0; iter < 15; iter++) {
 
             for (let y = 1; y < canvas.height-1; y++) {
@@ -337,28 +355,14 @@ elif tool == "🖌 Manual Object Eraser":
 
         ctx.putImageData(imageData, 0, 0);
 
-        // 🔥 SAVE NEW STATE
-        history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        // ✅ SAVE RESULT AS NEW BASE IMAGE
+        img.src = canvas.toDataURL();
 
+        // reset mask points
         pts = [];
     }
 
-    // =========================
-    // 🔁 UNDO (100% WORKING)
-    // =========================
-    document.getElementById("undo").onclick = () => {
-
-        if (history.length > 1) {
-            history.pop(); // remove current
-            ctx.putImageData(history[history.length - 1], 0, 0);
-        }
-
-        pts = [];
-    }
-
-    // =========================
     // DOWNLOAD
-    // =========================
     document.getElementById("download").onclick = () => {
         let link = document.createElement("a");
         link.download = "result.png";
