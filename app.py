@@ -99,7 +99,7 @@ if uploaded_file and tool not in ["✨ Blur Object Tool", "🧠 Generative Fill 
 # =========================
 elif tool == "✨ Blur Object Tool":
 
-    st.subheader(" ✨ Blur Object Tool")
+    st.subheader("   ✨ Blur Object Tool")
 
     components.html("""
     <html><body style="text-align:center;">
@@ -226,7 +226,7 @@ elif tool == "✨ Blur Object Tool":
 # =========================
 elif tool == "🖌 Manual Object Eraser":
 
-    st.subheader("    🖌 Smart Object Eraser (Natural Fill)")
+    st.subheader("     🖌 Smart Object Eraser (Natural Fill)")
 
     components.html("""
     <html>
