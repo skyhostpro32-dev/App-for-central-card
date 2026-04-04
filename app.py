@@ -31,6 +31,7 @@ tool = st.sidebar.radio(
         "🌄 Background Removal",
         "✨ Blur Object Tool",
         "🧠 Generative Fill (Pro)"
+        "Erase Manually"
     ]
 )
 
@@ -264,7 +265,196 @@ elif tool == "🧠 Generative Fill (Pro)":
 
             else:
                 st.warning("⚠️ Draw on image first")
+# =========================
+# 🖌 MANUAL OBJECT ERASER
+# =========================
+elif tool == "🖌 Manual Object Eraser":
 
+    st.subheader("🖌 Manual Smart Object Remover (Undo + Accurate)")
+
+    components.html("""
+    <html>
+    <body style="text-align:center; font-family:Arial; margin:0;">
+
+    <h3>Upload → Click Object → Remove</h3>
+
+    <input type="file" id="upload"><br><br>
+
+    Brush Size:
+    <input type="range" id="brush" min="10" max="80" value="30"><br><br>
+
+    <div style="margin:20px; display:flex; justify-content:center; gap:10px;">
+        
+        <button id="apply" style="padding:10px 20px; font-size:16px; background:#4CAF50; color:white; border:none; border-radius:6px;">
+            ✨ Apply
+        </button>
+        
+        <button id="undo" style="padding:10px 20px; font-size:16px; background:#f39c12; color:white; border:none; border-radius:6px;">
+            ↩ Undo
+        </button>
+        
+        <button id="download" style="padding:10px 20px; font-size:16px; background:#3498db; color:white; border:none; border-radius:6px;">
+            ⬇ Download
+        </button>
+
+    </div>
+
+    <canvas id="c" style="border:1px solid #ccc;"></canvas>
+
+    <script>
+    const upload = document.getElementById("upload");
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+
+    const apply = document.getElementById("apply");
+    const undoBtn = document.getElementById("undo");
+    const downloadBtn = document.getElementById("download");
+
+    let img = new Image();
+    let pts = [];
+
+    upload.onchange = e => {
+        img.src = URL.createObjectURL(e.target.files[0]);
+
+        img.onload = () => {
+
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            ctx.drawImage(img, 0, 0);
+
+            const maxWidth = window.innerWidth * 0.9;
+            const maxHeight = window.innerHeight * 0.7;
+
+            const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+
+            canvas.style.width = (img.width * scale) + "px";
+            canvas.style.height = (img.height * scale) + "px";
+        }
+    }
+
+    canvas.onclick = e => {
+
+        const rect = canvas.getBoundingClientRect();
+
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
+
+        let size = parseInt(document.getElementById("brush").value);
+
+        pts.push({x, y, size});
+
+        redraw();
+    }
+
+    function redraw() {
+        ctx.drawImage(img, 0, 0);
+
+        pts.forEach(p => {
+            ctx.fillStyle = "rgba(255,0,0,0.3)";
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
+    undoBtn.onclick = () => {
+        if (pts.length > 0) {
+            pts.pop();
+            redraw();
+        }
+    }
+
+    apply.onclick = () => {
+
+        ctx.drawImage(img, 0, 0);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        pts.forEach(p => {
+
+            const radius = p.size;
+            const px = p.x;
+            const py = p.y;
+
+            let r = 0, g = 0, b = 0, count = 0;
+
+            for (let y = -radius * 2; y <= radius * 2; y++) {
+                for (let x = -radius * 2; x <= radius * 2; x++) {
+
+                    const dist = Math.sqrt(x*x + y*y);
+
+                    if (dist > radius && dist < radius * 2.5) {
+
+                        const sx = Math.floor(px + x);
+                        const sy = Math.floor(py + y);
+
+                        if (sx >= 0 && sy >= 0 && sx < canvas.width && sy < canvas.height) {
+                            const i = (sy * canvas.width + sx) * 4;
+                            r += data[i];
+                            g += data[i + 1];
+                            b += data[i + 2];
+                            count++;
+                        }
+                    }
+                }
+            }
+
+            if (count === 0) return;
+
+            r /= count;
+            g /= count;
+            b /= count;
+
+            for (let y = -radius; y <= radius; y++) {
+                for (let x = -radius; x <= radius; x++) {
+
+                    const dist = Math.sqrt(x*x + y*y);
+
+                    if (dist <= radius) {
+
+                        const sx = Math.floor(px + x);
+                        const sy = Math.floor(py + y);
+
+                        if (sx >= 0 && sy >= 0 && sx < canvas.width && sy < canvas.height) {
+
+                            const i = (sy * canvas.width + sx) * 4;
+
+                            let alpha = 1 - (dist / radius);
+                            alpha = Math.pow(alpha, 1.5);
+
+                            data[i]     = data[i]     * (1 - alpha) + r * alpha;
+                            data[i + 1] = data[i + 1] * (1 - alpha) + g * alpha;
+                            data[i + 2] = data[i + 2] * (1 - alpha) + b * alpha;
+
+                            data[i]     += Math.random() * 2;
+                            data[i + 1] += Math.random() * 2;
+                            data[i + 2] += Math.random() * 2;
+                        }
+                    }
+                }
+            }
+        });
+
+        ctx.putImageData(imageData, 0, 0);
+    }
+
+    downloadBtn.onclick = () => {
+        const link = document.createElement("a");
+        link.download = "cleaned-image.png";
+        link.href = canvas.toDataURL("image/png", 1.0);
+        link.click();
+    }
+
+    </script>
+
+    </body>
+    </html>
+    """, height=900)
 # =========================
 # DEFAULT
 # =========================
