@@ -184,11 +184,11 @@ elif tool == "🧠 Generative Fill (Pro)":
 # MANUAL ERASER (FIXED)
 # ========================
 # =========================
-# 🖌 MANUAL OBJECT ERASER (FINAL - UNDO FIXED)
+# 🖌 MANUAL OBJECT ERASER (FINAL - TRUE UNDO FIX)
 # =========================
 elif tool == "🖌 Manual Object Eraser":
 
-    st.subheader("🖌 Smart Object Eraser (Undo + Natural Fill)")
+    st.subheader("🖌 Smart Object Eraser (Perfect Undo)")
 
     components.html("""
     <html>
@@ -214,7 +214,7 @@ elif tool == "🖌 Manual Object Eraser":
 
     let img = new Image();
     let pts = [];
-    let history = []; // ✅ stores ImageData
+    let history = []; // 🔥 REAL HISTORY
 
     // =========================
     // LOAD IMAGE
@@ -227,13 +227,16 @@ elif tool == "🖌 Manual Object Eraser":
             canvas.height = img.height;
             ctx.drawImage(img, 0, 0);
 
-            // Fit display
+            // Fit screen
             let scale = Math.min(window.innerWidth / img.width, 0.8);
             canvas.style.width = img.width * scale + "px";
             canvas.style.height = img.height * scale + "px";
 
             pts = [];
             history = [];
+
+            // 🔥 Save initial state
+            history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
         }
     }
 
@@ -255,7 +258,7 @@ elif tool == "🖌 Manual Object Eraser":
     }
 
     function redraw() {
-        ctx.drawImage(img, 0, 0);
+        ctx.putImageData(history[history.length - 1], 0, 0);
 
         pts.forEach(p => {
             ctx.fillStyle = "rgba(255,0,0,0.3)";
@@ -266,41 +269,15 @@ elif tool == "🖌 Manual Object Eraser":
     }
 
     // =========================
-    // 🔁 UNDO (FINAL FIX)
-    // =========================
-    document.getElementById("undo").onclick = () => {
-
-        // Undo mask clicks first
-        if (pts.length > 0) {
-            pts.pop();
-            redraw();
-            return;
-        }
-
-        // Undo applied changes
-        if (history.length > 0) {
-            let prev = history.pop();
-            ctx.putImageData(prev, 0, 0);
-
-            // sync img for future redraw
-            img.src = canvas.toDataURL();
-        }
-    }
-
-    // =========================
-    // 🚀 APPLY (STRONG FILL)
+    // 🚀 APPLY (REAL FILL)
     // =========================
     document.getElementById("apply").onclick = () => {
-
-        // ✅ SAVE IMAGE STATE (IMPORTANT)
-        history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
 
         let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let data = imageData.data;
 
         let mask = new Uint8Array(canvas.width * canvas.height);
 
-        // CREATE MASK
         pts.forEach(p => {
             for (let y = -p.size; y <= p.size; y++) {
                 for (let x = -p.size; x <= p.size; x++) {
@@ -318,7 +295,6 @@ elif tool == "🖌 Manual Object Eraser":
             }
         });
 
-        // 🔥 MULTI-PASS NATURAL FILL
         for (let iter = 0; iter < 15; iter++) {
 
             for (let y = 1; y < canvas.height-1; y++) {
@@ -361,8 +337,21 @@ elif tool == "🖌 Manual Object Eraser":
 
         ctx.putImageData(imageData, 0, 0);
 
-        // ✅ UPDATE BASE IMAGE
-        img.src = canvas.toDataURL();
+        // 🔥 SAVE NEW STATE
+        history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+
+        pts = [];
+    }
+
+    // =========================
+    // 🔁 UNDO (100% WORKING)
+    // =========================
+    document.getElementById("undo").onclick = () => {
+
+        if (history.length > 1) {
+            history.pop(); // remove current
+            ctx.putImageData(history[history.length - 1], 0, 0);
+        }
 
         pts = [];
     }
