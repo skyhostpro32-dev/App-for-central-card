@@ -111,7 +111,25 @@ elif tool == "✨ Blur Object Tool":
     Brush Size:
     <input type="range" id="brush" min="10" max="80" value="30"><br><br>
 
-    <button id="apply">Apply Blur</button>
+    <style>
+#apply {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 14px 32px;
+    font-size: 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: 0.2s ease;
+}
+
+#apply:hover {
+    background-color: #43a047;
+}
+</style>
+
+<button id="apply">✨ Apply Blur</button>
 
     <br><br>
     <canvas id="c" style="border:1px solid #ccc;"></canvas>
