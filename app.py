@@ -257,10 +257,23 @@ elif tool == "🖌 Manual Object Eraser":
 
     // UNDO
     document.getElementById("undo").onclick = () => {
+
+    // Undo mask clicks first
+    if (pts.length > 0) {
         pts.pop();
         redraw();
+        return;
     }
 
+    // Restore previous image state
+    if (history.length > 0) {
+        let prevImage = history.pop();
+        ctx.putImageData(prevImage, 0, 0);
+
+        // ALSO update img so redraw works
+        img.src = canvas.toDataURL();
+    }
+};
     // 🚀 APPLY (REAL INPAINT)
     document.getElementById("apply").onclick = () => {
 
