@@ -30,14 +30,15 @@ tool = st.sidebar.radio(
         "🧍 Auto Person Remove",
         "🌄 Background Removal",
         "✨ Blur Object Tool",
-        "🧠 Generative Fill (Pro)"
+        "🧠 Generative Fill (Pro)",
+        "🖌 Manual Object Eraser"
     ]
 )
 
 # =========================
-# BACKGROUND / ENHANCE / REMOVE
+# IMAGE TOOLS
 # =========================
-if uploaded_file and tool not in ["✨ Blur Object Tool", "🧠 Generative Fill (Pro)"]:
+if uploaded_file and tool not in ["✨ Blur Object Tool", "🧠 Generative Fill (Pro)", "🖌 Manual Object Eraser"]:
 
     image = Image.open(uploaded_file).convert("RGB")
     image.thumbnail((600, 600))
@@ -45,101 +46,60 @@ if uploaded_file and tool not in ["✨ Blur Object Tool", "🧠 Generative Fill 
     st.subheader("📸 Original Image")
     st.image(image, use_column_width=True)
 
-    # 🎨 BACKGROUND CHANGE
     if tool == "🎨 Background Change":
-
         color_hex = st.sidebar.color_picker("Pick Background Color", "#00ffaa")
         color = tuple(int(color_hex[i:i+2], 16) for i in (1, 3, 5))
 
         if st.sidebar.button("🚀 Apply Background"):
-
             img_array = np.array(image)
             gray = np.mean(img_array, axis=2)
             mask = gray > 200
             img_array[mask] = color
-
             result = Image.fromarray(img_array)
 
-            st.divider()
-            st.subheader("✨ Result Image")
             st.image(result, use_column_width=True)
-
             buf = io.BytesIO()
             result.save(buf, format="PNG")
             st.download_button("📥 Download", buf.getvalue(), "background.png")
 
-    # ✨ ENHANCE
     elif tool == "✨ Enhance Image":
-
         strength = st.sidebar.slider("Sharpness", 1, 5, 2)
 
         if st.sidebar.button("🚀 Enhance"):
-
             result = image
             for _ in range(strength):
                 result = result.filter(ImageFilter.SHARPEN)
 
-            st.divider()
-            st.subheader("✨ Result Image")
             st.image(result, use_column_width=True)
-
             buf = io.BytesIO()
             result.save(buf, format="PNG")
             st.download_button("📥 Download", buf.getvalue(), "enhanced.png")
 
-    # 🧍 PERSON REMOVE
     elif tool == "🧍 Auto Person Remove":
-
         if st.sidebar.button("🚀 Remove Person"):
-
             mask_img = remove(image)
             mask = np.array(mask_img)
 
-            if mask.shape[2] == 4:
-                alpha = mask[:, :, 3]
-            else:
-                alpha = cv2.cvtColor(mask, cv2.COLOR_RGB2GRAY)
-
+            alpha = mask[:, :, 3] if mask.shape[2] == 4 else cv2.cvtColor(mask, cv2.COLOR_RGB2GRAY)
             _, binary_mask = cv2.threshold(alpha, 10, 255, cv2.THRESH_BINARY)
 
             img_np = np.array(image)
-            inpainted = cv2.inpaint(img_np, binary_mask, 3, cv2.INPAINT_TELEA)
+            result = cv2.inpaint(img_np, binary_mask, 3, cv2.INPAINT_TELEA)
 
-            result = Image.fromarray(inpainted)
-
-            st.divider()
-            st.subheader("✨ Result Image")
             st.image(result, use_column_width=True)
+            st.download_button("📥 Download", data=cv2.imencode(".png", result)[1].tobytes(), file_name="no_person.png")
 
-            st.download_button(
-                "📥 Download",
-                data=cv2.imencode(".png", inpainted)[1].tobytes(),
-                file_name="no_person.png"
-            )
-
-    # 🌄 BACKGROUND REMOVAL
     elif tool == "🌄 Background Removal":
-
         if st.sidebar.button("🚀 Remove Background"):
-
             output_image = remove(image.convert("RGBA"))
 
-            st.divider()
-            st.subheader("✨ Result Image")
             st.image(output_image, use_column_width=True)
-
             buf = io.BytesIO()
             output_image.save(buf, format="PNG")
-
-            st.download_button(
-                "📥 Download",
-                buf.getvalue(),
-                "background_removed.png",
-                "image/png"
-            )
+            st.download_button("📥 Download", buf.getvalue(), "bg_removed.png")
 
 # =========================
-# ✨ BLUR TOOL (HTML)
+# BLUR TOOL
 # =========================
 elif tool == "✨ Blur Object Tool":
 
@@ -207,7 +167,7 @@ elif tool == "✨ Blur Object Tool":
     """, height=650)
 
 # =========================
-# 🧠 GENERATIVE FILL (FIXED)
+# GENERATIVE FILL
 # =========================
 elif tool == "🧠 Generative Fill (Pro)":
 
@@ -215,63 +175,111 @@ elif tool == "🧠 Generative Fill (Pro)":
 
     if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
-
-        # ORIGINAL TOP
-        st.subheader("📸 Original Image")
         st.image(image, use_column_width=True)
 
-        st.write("🖌 Draw mask below → Click Apply")
-
-        # CANVAS (NO CRASH)
         canvas_result = st_canvas(
-            fill_color="rgba(255, 0, 0, 0.4)",
+            fill_color="rgba(255,0,0,0.4)",
             stroke_width=25,
-            stroke_color="#ff0000",
-            background_color="rgba(0,0,0,0)",
             height=500,
             width=500,
             drawing_mode="freedraw",
-            key="canvas_fixed",
+            key="canvas"
         )
 
-        if st.button("🚀 Apply AI Remove"):
+        if st.button("🚀 Apply AI Remove") and canvas_result.image_data is not None:
+            mask = canvas_result.image_data[:, :, 3]
+            mask = (mask > 50).astype("uint8") * 255
 
-            if canvas_result.image_data is not None:
+            img_np = np.array(image.resize((500, 500)))
+            result = cv2.inpaint(img_np, mask, 7, cv2.INPAINT_TELEA)
 
-                with st.spinner("Generating natural fill..."):
+            st.image(result, use_column_width=True)
+            st.download_button("📥 Download", data=cv2.imencode(".png", result)[1].tobytes())
 
-                    mask = canvas_result.image_data[:, :, 3]
-                    mask = (mask > 50).astype("uint8") * 255
+# =========================
+# MANUAL ERASER (NEW)
+# =========================
+elif tool == "🖌 Manual Object Eraser":
 
-                    img_np = np.array(image.resize((500, 500)))
+    st.subheader("🖌 Manual Object Eraser")
 
-                    result = cv2.inpaint(
-                        img_np,
-                        mask,
-                        7,
-                        cv2.INPAINT_TELEA
-                    )
+    components.html("""
+    <html>
+    <body style="text-align:center;">
 
-                st.divider()
-                st.subheader("✨ Result Image")
-                st.image(result, use_column_width=True)
+    <h3>Upload → Click → Remove</h3>
+    <input type="file" id="upload"><br><br>
 
-                st.download_button(
-                    "📥 Download Result",
-                    data=cv2.imencode(".png", result)[1].tobytes(),
-                    file_name="ai_removed.png"
-                )
+    <input type="range" id="brush" min="10" max="80" value="30"><br><br>
 
-            else:
-                st.warning("⚠️ Draw on image first")
+    <button id="apply">Apply</button>
+    <button id="undo">Undo</button>
+    <button id="download">Download</button>
+
+    <canvas id="c"></canvas>
+
+    <script>
+    const canvas=document.getElementById("c");
+    const ctx=canvas.getContext("2d");
+
+    let img=new Image();
+    let pts=[];
+
+    document.getElementById("upload").onchange=e=>{
+        img.src=URL.createObjectURL(e.target.files[0]);
+        img.onload=()=>{
+            canvas.width=img.width;
+            canvas.height=img.height;
+            ctx.drawImage(img,0,0);
+        }
+    }
+
+    canvas.onclick=e=>{
+        let r=canvas.getBoundingClientRect();
+        let x=(e.clientX-r.left)*(canvas.width/r.width);
+        let y=(e.clientY-r.top)*(canvas.height/r.height);
+        let size=document.getElementById("brush").value;
+
+        pts.push({x,y,size});
+        redraw();
+    }
+
+    function redraw(){
+        ctx.drawImage(img,0,0);
+        pts.forEach(p=>{
+            ctx.fillStyle="rgba(255,0,0,0.3)";
+            ctx.beginPath();
+            ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+            ctx.fill();
+        });
+    }
+
+    document.getElementById("undo").onclick=()=>{
+        pts.pop();
+        redraw();
+    }
+
+    document.getElementById("apply").onclick=()=>{
+        ctx.drawImage(img,0,0);
+    }
+
+    document.getElementById("download").onclick=()=>{
+        const link=document.createElement("a");
+        link.download="result.png";
+        link.href=canvas.toDataURL();
+        link.click();
+    }
+    </script>
+
+    </body>
+    </html>
+    """, height=700)
+
 # =========================
 # DEFAULT
 # =========================
 else:
     st.info("👈 Upload image or select tool")
 
-# =========================
-# FOOTER
-# =========================
 st.markdown("---")
 st.caption("🚀 All-in-One AI Image Dashboard")
