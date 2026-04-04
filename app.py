@@ -220,10 +220,48 @@ elif tool == "🖌 Manual Object Eraser":
 
     Brush Size:
     <input type="range" id="brush" min="10" max="80" value="30"><br><br>
+    <style>
+.btn {
+    border: none;
+    padding: 12px 28px;
+    font-size: 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    margin: 5px;
+    color: white;
+    font-weight: 500;
+    transition: 0.2s ease;
+}
 
-    <button id="apply">✨ Apply</button>
-    <button id="undo">↩ Undo</button>
-    <button id="download">⬇ Download</button>
+.apply {
+    background-color: #4CAF50;
+}
+
+.apply:hover {
+    background-color: #43a047;
+}
+
+.undo {
+    background-color: #f39c12;
+}
+
+.undo:hover {
+    background-color: #e67e22;
+}
+
+.download {
+    background-color: #3498db;
+}
+
+.download:hover {
+    background-color: #2980b9;
+}
+</style>
+
+<button id="apply" class="btn apply">✨ Apply</button>
+<button id="undo" class="btn undo">↩ Undo</button>
+<button id="download" class="btn download">⬇ Download</button>
+   
 
     <br><br>
     <canvas id="c" style="border:1px solid #ccc;"></canvas>
