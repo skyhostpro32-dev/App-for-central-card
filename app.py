@@ -100,56 +100,107 @@ if uploaded_file and tool not in ["✨ Blur Object Tool", "🧠 Generative Fill 
 # =========================
 elif tool == "✨ Blur Object Tool":
 
+    st.subheader("✨ Blur Object Tool")
+
     components.html("""
     <html><body style="text-align:center;">
+
     <h3>Upload → Click → Blur</h3>
+
     <input type="file" id="upload"><br><br>
+
+    Brush Size:
     <input type="range" id="brush" min="10" max="80" value="30"><br><br>
+
     <button id="apply">Apply Blur</button>
-    <canvas id="c"></canvas>
+
+    <br><br>
+    <canvas id="c" style="border:1px solid #ccc;"></canvas>
 
     <script>
-    const upload=document.getElementById("upload");
-    const canvas=document.getElementById("c");
-    const ctx=canvas.getContext("2d");
+    const upload = document.getElementById("upload");
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    const apply = document.getElementById("apply");
 
-    let img=new Image();
-    let pts=[];
+    let img = new Image();
+    let pts = [];
 
-    upload.onchange=e=>{
-        img.src=URL.createObjectURL(e.target.files[0]);
-        img.onload=()=>{
-            canvas.width=img.width;
-            canvas.height=img.height;
-            ctx.drawImage(img,0,0);
+    // LOAD IMAGE
+    upload.onchange = e => {
+        img.src = URL.createObjectURL(e.target.files[0]);
+
+        img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+
+            // Fit screen
+            let scale = Math.min(window.innerWidth / img.width, 0.8);
+            canvas.style.width = img.width * scale + "px";
+            canvas.style.height = img.height * scale + "px";
+
+            pts = [];
         }
     }
 
-    canvas.onclick=e=>{
-        let r=canvas.getBoundingClientRect();
-        let x=(e.clientX-r.left)*(canvas.width/r.width);
-        let y=(e.clientY-r.top)*(canvas.height/r.height);
-        let size=document.getElementById("brush").value;
+    // CLICK → ADD PREVIEW
+    canvas.onclick = e => {
 
-        pts.push({x,y,size});
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
+
+        const size = parseInt(document.getElementById("brush").value);
+
+        pts.push({x, y, size});
+
+        redraw(); // 🔥 SHOW PREVIEW
     }
 
-    document.getElementById("apply").onclick=()=>{
-        ctx.drawImage(img,0,0);
-        pts.forEach(p=>{
-            ctx.save();
+    // DRAW PREVIEW
+    function redraw() {
+        ctx.drawImage(img, 0, 0);
+
+        pts.forEach(p => {
+            ctx.fillStyle = "rgba(255,0,0,0.3)";
             ctx.beginPath();
-            ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
+    // APPLY BLUR
+    apply.onclick = () => {
+
+        ctx.drawImage(img, 0, 0);
+
+        pts.forEach(p => {
+            ctx.save();
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.clip();
-            ctx.filter="blur(12px)";
-            ctx.drawImage(img,0,0);
+
+            ctx.filter = "blur(12px)";
+            ctx.drawImage(img, 0, 0);
+
             ctx.restore();
         });
-        ctx.filter="none";
+
+        ctx.filter = "none";
+
+        // update base image
+        img.src = canvas.toDataURL();
+        pts = [];
     }
+
     </script>
     </body></html>
-    """, height=650)
+    """, height=700)
 
 # =========================
 # GENERATIVE FILL (FIXED)
