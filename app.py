@@ -201,36 +201,6 @@ elif tool == "✨ Blur Object Tool":
     </script>
     </body></html>
     """, height=700)
-
-# =========================
-# GENERATIVE FILL (FIXED)
-# =========================
-elif tool == "🧠 Generative Fill (Pro)":
-
-    if uploaded_file:
-        image = Image.open(uploaded_file).convert("RGB")
-        size = 512
-        image = image.resize((size, size))
-
-        canvas = st_canvas(
-            fill_color="rgba(255,0,0,0.4)",
-            stroke_width=30,
-            background_image=image,
-            height=size,
-            width=size,
-            drawing_mode="freedraw",
-            key="canvas"
-        )
-
-        if st.button("Apply AI Remove") and canvas.image_data is not None:
-            mask = canvas.image_data[:, :, 3]
-            mask = (mask > 10).astype("uint8") * 255
-
-            result = cv2.inpaint(np.array(image), mask, 7, cv2.INPAINT_TELEA)
-
-            st.image(result)
-            st.download_button("Download", cv2.imencode(".png", result)[1].tobytes())
-
 # =========================
 # MANUAL ERASER (FIXED)
 # ========================
