@@ -183,59 +183,64 @@ elif tool == "🧠 Generative Fill (Pro)":
 # =========================
 # MANUAL ERASER (FIXED)
 # ========================
+# =========================
+# 🖌 MANUAL OBJECT ERASER (FINAL WORKING)
+# =========================
 elif tool == "🖌 Manual Object Eraser":
 
-    st.subheader("✨ Click → Remove Object (Undo + Perfect UI)")
+    st.subheader("🖌 Smart Object Eraser (Natural Fill)")
 
     components.html("""
     <html>
-    <body style="text-align:center; font-family:Arial; margin:0;">
+    <body style="text-align:center; font-family:Arial;">
 
-    <h3>Upload → Click Object → Remove</h3>
+    <h3>Upload → Click → Remove Object</h3>
 
     <input type="file" id="upload"><br><br>
 
     Brush Size:
     <input type="range" id="brush" min="10" max="80" value="30"><br><br>
 
-    <div style="margin:20px; display:flex; justify-content:center; gap:10px;">
-        <button id="apply">Apply</button>
-        <button id="undo">Undo</button>
-        <button id="download">Download</button>
-    </div>
+    <button id="apply">✨ Apply</button>
+    <button id="undo">↩ Undo</button>
+    <button id="download">⬇ Download</button>
 
+    <br><br>
     <canvas id="c" style="border:1px solid #ccc;"></canvas>
 
     <script>
-    const upload = document.getElementById("upload");
     const canvas = document.getElementById("c");
     const ctx = canvas.getContext("2d");
-
-    const apply = document.getElementById("apply");
-    const undoBtn = document.getElementById("undo");
-    const downloadBtn = document.getElementById("download");
 
     let img = new Image();
     let pts = [];
 
-    upload.onchange = e => {
+    // LOAD IMAGE
+    document.getElementById("upload").onchange = e => {
         img.src = URL.createObjectURL(e.target.files[0]);
         img.onload = () => {
             canvas.width = img.width;
             canvas.height = img.height;
             ctx.drawImage(img, 0, 0);
+
+            // Fit screen
+            let scale = Math.min(window.innerWidth/img.width, 0.8);
+            canvas.style.width = img.width * scale + "px";
+            canvas.style.height = img.height * scale + "px";
         }
     }
 
+    // CLICK MASK
     canvas.onclick = e => {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
+        const r = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / r.width;
+        const scaleY = canvas.height / r.height;
 
-        const x = (e.clientX - rect.left) * scaleX;
-        const y = (e.clientY - rect.top) * scaleY;
+        const x = (e.clientX - r.left) * scaleX;
+        const y = (e.clientY - r.top) * scaleY;
 
         const size = parseInt(document.getElementById("brush").value);
+
         pts.push({x, y, size});
         redraw();
     }
@@ -250,79 +255,91 @@ elif tool == "🖌 Manual Object Eraser":
         });
     }
 
-    undoBtn.onclick = () => {
+    // UNDO
+    document.getElementById("undo").onclick = () => {
         pts.pop();
         redraw();
     }
 
-    apply.onclick = () => {
+    // 🚀 APPLY (REAL INPAINT)
+    document.getElementById("apply").onclick = () => {
 
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
+        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let data = imageData.data;
 
+        let mask = new Uint8Array(canvas.width * canvas.height);
+
+        // CREATE MASK
         pts.forEach(p => {
+            for (let y = -p.size; y <= p.size; y++) {
+                for (let x = -p.size; x <= p.size; x++) {
 
-            const radius = p.size;
-            const px = p.x;
-            const py = p.y;
+                    let dist = Math.sqrt(x*x + y*y);
+                    if (dist > p.size) continue;
 
-            for (let y = -radius; y <= radius; y++) {
-                for (let x = -radius; x <= radius; x++) {
+                    let sx = Math.floor(p.x + x);
+                    let sy = Math.floor(p.y + y);
 
-                    const dist = Math.sqrt(x*x + y*y);
-                    if (dist > radius) continue;
-
-                    const sx = Math.floor(px + x);
-                    const sy = Math.floor(py + y);
-
-                    if (sx < 0 || sy < 0 || sx >= canvas.width || sy >= canvas.height) continue;
-
-                    let bestR=0,bestG=0,bestB=0,minDist=9999;
-
-                    for (let ry = -radius*2; ry <= radius*2; ry++) {
-                        for (let rx = -radius*2; rx <= radius*2; rx++) {
-
-                            const d = Math.sqrt(rx*rx + ry*ry);
-                            if (d <= radius || d > radius*2) continue;
-
-                            const nx = Math.floor(px + rx);
-                            const ny = Math.floor(py + ry);
-
-                            if (nx < 0 || ny < 0 || nx >= canvas.width || ny >= canvas.height) continue;
-
-                            if (d < minDist) {
-                                const i2 = (ny * canvas.width + nx) * 4;
-                                bestR = data[i2];
-                                bestG = data[i2 + 1];
-                                bestB = data[i2 + 2];
-                                minDist = d;
-                            }
-                        }
+                    if (sx>=0 && sy>=0 && sx<canvas.width && sy<canvas.height) {
+                        mask[sy * canvas.width + sx] = 1;
                     }
-
-                    const i = (sy * canvas.width + sx) * 4;
-
-                    let alpha = 1 - (dist / radius);
-                    alpha = Math.pow(alpha, 1.8);
-
-                    data[i]     = data[i]     * (1 - alpha) + bestR * alpha;
-                    data[i + 1] = data[i + 1] * (1 - alpha) + bestG * alpha;
-                    data[i + 2] = data[i + 2] * (1 - alpha) + bestB * alpha;
                 }
             }
         });
 
+        // 🔥 STRONG FILL (MULTI-PASS)
+        for (let iter = 0; iter < 15; iter++) {
+
+            for (let y = 1; y < canvas.height-1; y++) {
+                for (let x = 1; x < canvas.width-1; x++) {
+
+                    let idx = y * canvas.width + x;
+
+                    if (mask[idx] === 1) {
+
+                        let sumR=0,sumG=0,sumB=0,count=0;
+
+                        for (let dy=-2; dy<=2; dy++) {
+                            for (let dx=-2; dx<=2; dx++) {
+
+                                let nx = x+dx;
+                                let ny = y+dy;
+                                let nidx = ny * canvas.width + nx;
+
+                                if (mask[nidx] === 0) {
+                                    let i2 = nidx * 4;
+                                    sumR += data[i2];
+                                    sumG += data[i2+1];
+                                    sumB += data[i2+2];
+                                    count++;
+                                }
+                            }
+                        }
+
+                        if (count > 0) {
+                            let i4 = idx * 4;
+                            data[i4]     = sumR / count;
+                            data[i4 + 1] = sumG / count;
+                            data[i4 + 2] = sumB / count;
+                            mask[idx] = 0;
+                        }
+                    }
+                }
+            }
+        }
+
         ctx.putImageData(imageData, 0, 0);
 
-        // ✅ CRITICAL FIX (PERSIST CHANGE)
+        // ✅ SAVE RESULT (CRITICAL FIX)
         img.src = canvas.toDataURL();
         pts = [];
     }
 
-    downloadBtn.onclick = () => {
-        const link = document.createElement("a");
-        link.download = "cleaned-image.png";
-        link.href = canvas.toDataURL("image/png");
+    // DOWNLOAD
+    document.getElementById("download").onclick = () => {
+        let link = document.createElement("a");
+        link.download = "result.png";
+        link.href = canvas.toDataURL();
         link.click();
     }
 
