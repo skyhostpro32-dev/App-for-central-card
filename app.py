@@ -226,7 +226,7 @@ elif tool == "✨ Blur Object Tool":
 # =========================
 elif tool == "🖌 Manual Object Eraser":
 
-    st.subheader(" 🖌 Smart Object Eraser (Natural Fill)")
+    st.subheader("    🖌 Smart Object Eraser (Natural Fill)")
 
     components.html("""
     <html>
