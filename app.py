@@ -30,7 +30,6 @@ tool = st.sidebar.radio(
         "🧍 Auto Person Remove",
         "🌄 Background Removal",
         "✨ Blur Object Tool",
-        "🧠 Generative Fill (Pro)",
         "🖌 Manual Object Eraser"
     ]
 )
