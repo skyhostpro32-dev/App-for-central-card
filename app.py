@@ -182,8 +182,8 @@ elif tool == "🧠 Generative Fill (Pro)":
 
 # =========================
 # MANUAL ERASER (FIXED)
-# =========================
-if tool == "✨ Smart Object Remover":
+# ========================
+elif tool == "🖌 Manual Object Eraser":
 
     st.subheader("✨ Click → Remove Object (Undo + Perfect UI)")
 
@@ -198,21 +198,10 @@ if tool == "✨ Smart Object Remover":
     Brush Size:
     <input type="range" id="brush" min="10" max="80" value="30"><br><br>
 
-    <!-- ✅ BUTTONS (VISIBLE + STYLED) -->
     <div style="margin:20px; display:flex; justify-content:center; gap:10px;">
-        
-        <button id="apply" style="padding:10px 20px; font-size:16px; background:#4CAF50; color:white; border:none; border-radius:6px;">
-            ✨ Apply
-        </button>
-        
-        <button id="undo" style="padding:10px 20px; font-size:16px; background:#f39c12; color:white; border:none; border-radius:6px;">
-            ↩ Undo
-        </button>
-        
-        <button id="download" style="padding:10px 20px; font-size:16px; background:#3498db; color:white; border:none; border-radius:6px;">
-            ⬇ Download
-        </button>
-
+        <button id="apply">Apply</button>
+        <button id="undo">Undo</button>
+        <button id="download">Download</button>
     </div>
 
     <canvas id="c" style="border:1px solid #ccc;"></canvas>
@@ -229,51 +218,30 @@ if tool == "✨ Smart Object Remover":
     let img = new Image();
     let pts = [];
 
-    // ✅ LOAD IMAGE (REAL SIZE + CSS FIT)
     upload.onchange = e => {
         img.src = URL.createObjectURL(e.target.files[0]);
-
         img.onload = () => {
-
-            // real resolution
             canvas.width = img.width;
             canvas.height = img.height;
-
             ctx.drawImage(img, 0, 0);
-
-            // fit display
-            const maxWidth = window.innerWidth * 0.9;
-            const maxHeight = window.innerHeight * 0.7;
-
-            const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
-
-            canvas.style.width = (img.width * scale) + "px";
-            canvas.style.height = (img.height * scale) + "px";
         }
     }
 
-    // ✅ CLICK (ACCURATE)
     canvas.onclick = e => {
-
         const rect = canvas.getBoundingClientRect();
-
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
 
         const x = (e.clientX - rect.left) * scaleX;
         const y = (e.clientY - rect.top) * scaleY;
 
-        let size = parseInt(document.getElementById("brush").value);
-
+        const size = parseInt(document.getElementById("brush").value);
         pts.push({x, y, size});
-
         redraw();
     }
 
-    // ✅ REDRAW FUNCTION
     function redraw() {
         ctx.drawImage(img, 0, 0);
-
         pts.forEach(p => {
             ctx.fillStyle = "rgba(255,0,0,0.3)";
             ctx.beginPath();
@@ -282,18 +250,12 @@ if tool == "✨ Smart Object Remover":
         });
     }
 
-    // ✅ UNDO FUNCTION
     undoBtn.onclick = () => {
-        if (pts.length > 0) {
-            pts.pop();
-            redraw();
-        }
+        pts.pop();
+        redraw();
     }
 
-    // ✅ APPLY REMOVE
     apply.onclick = () => {
-
-        ctx.drawImage(img, 0, 0);
 
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
@@ -304,75 +266,70 @@ if tool == "✨ Smart Object Remover":
             const px = p.x;
             const py = p.y;
 
-            let r = 0, g = 0, b = 0, count = 0;
-
-            for (let y = -radius * 2; y <= radius * 2; y++) {
-                for (let x = -radius * 2; x <= radius * 2; x++) {
-
-                    const dist = Math.sqrt(x*x + y*y);
-
-                    if (dist > radius && dist < radius * 2.5) {
-
-                        const sx = Math.floor(px + x);
-                        const sy = Math.floor(py + y);
-
-                        if (sx >= 0 && sy >= 0 && sx < canvas.width && sy < canvas.height) {
-                            const i = (sy * canvas.width + sx) * 4;
-                            r += data[i];
-                            g += data[i + 1];
-                            b += data[i + 2];
-                            count++;
-                        }
-                    }
-                }
-            }
-
-            if (count === 0) return;
-
-            r /= count;
-            g /= count;
-            b /= count;
-
             for (let y = -radius; y <= radius; y++) {
                 for (let x = -radius; x <= radius; x++) {
 
                     const dist = Math.sqrt(x*x + y*y);
+                    if (dist > radius) continue;
 
-                    if (dist <= radius) {
+                    const sx = Math.floor(px + x);
+                    const sy = Math.floor(py + y);
 
-                        const sx = Math.floor(px + x);
-                        const sy = Math.floor(py + y);
+                    if (sx < 0 || sy < 0 || sx >= canvas.width || sy >= canvas.height) continue;
 
-                        if (sx >= 0 && sy >= 0 && sx < canvas.width && sy < canvas.height) {
+                    let bestR=0,bestG=0,bestB=0,minDist=9999;
 
-                            const i = (sy * canvas.width + sx) * 4;
+                    for (let ry = -radius*2; ry <= radius*2; ry++) {
+                        for (let rx = -radius*2; rx <= radius*2; rx++) {
 
-                            let alpha = 1 - (dist / radius);
-                            alpha = Math.pow(alpha, 1.5);
+                            const d = Math.sqrt(rx*rx + ry*ry);
+                            if (d <= radius || d > radius*2) continue;
 
-                            data[i]     = data[i]     * (1 - alpha) + r * alpha;
-                            data[i + 1] = data[i + 1] * (1 - alpha) + g * alpha;
-                            data[i + 2] = data[i + 2] * (1 - alpha) + b * alpha;
+                            const nx = Math.floor(px + rx);
+                            const ny = Math.floor(py + ry);
 
-                            data[i]     += Math.random() * 2;
-                            data[i + 1] += Math.random() * 2;
-                            data[i + 2] += Math.random() * 2;
+                            if (nx < 0 || ny < 0 || nx >= canvas.width || ny >= canvas.height) continue;
+
+                            if (d < minDist) {
+                                const i2 = (ny * canvas.width + nx) * 4;
+                                bestR = data[i2];
+                                bestG = data[i2 + 1];
+                                bestB = data[i2 + 2];
+                                minDist = d;
+                            }
                         }
                     }
+
+                    const i = (sy * canvas.width + sx) * 4;
+
+                    let alpha = 1 - (dist / radius);
+                    alpha = Math.pow(alpha, 1.8);
+
+                    data[i]     = data[i]     * (1 - alpha) + bestR * alpha;
+                    data[i + 1] = data[i + 1] * (1 - alpha) + bestG * alpha;
+                    data[i + 2] = data[i + 2] * (1 - alpha) + bestB * alpha;
                 }
             }
         });
 
         ctx.putImageData(imageData, 0, 0);
+
+        // ✅ CRITICAL FIX (PERSIST CHANGE)
+        img.src = canvas.toDataURL();
+        pts = [];
     }
 
-    // ✅ DOWNLOAD
     downloadBtn.onclick = () => {
         const link = document.createElement("a");
         link.download = "cleaned-image.png";
-        link.href = canvas.toDataURL("image/png", 1.0);
+        link.href = canvas.toDataURL("image/png");
         link.click();
     }
+
+    </script>
+    </body>
+    </html>
+    """, height=800)
 
 # =========================
 # DEFAULT
